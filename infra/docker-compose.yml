@@ -114,6 +114,25 @@ services:
       postgres:
         condition: service_healthy
 
+  portal:
+    build:
+      context: ..
+      dockerfile: services/portal/Containerfile
+    image: neurix-portal:latest
+    container_name: neurix-portal
+    restart: unless-stopped
+    environment:
+      # Server-side only — never exposed to the browser. The portal never touches
+      # Postgres directly, only core-api's HTTP API (see src/lib/coreApi.ts).
+      CORE_API_URL: http://core-api:8000
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env — do not start with an empty signing key}
+      AUTH_TRUST_HOST: "true"
+    ports:
+      - "3000:3000"
+    depends_on:
+      core-api:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   etcd_data:
