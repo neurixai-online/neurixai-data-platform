@@ -35,7 +35,7 @@ class Pm25Connector(Connector):
     source_name = "th_pm25_air4thai"
     schedule_cron = "0 * * * *"  # hourly — matches the station network's own update cadence
 
-    async def fetch(self) -> dict:
+    async def fetch(self, session: AsyncSession) -> dict:
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.get(_URL)
         resp.raise_for_status()

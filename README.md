@@ -5,17 +5,17 @@ holidays, BOT exchange rates, weather, PM2.5 — behind a subscription-metered g
 
 See [`docs/architecture.md`](docs/architecture.md) for the full design.
 
-This repo is currently at **Milestone 0 (walking skeleton), extended**: 3 of 6 connectors
+This repo is currently at **Milestone 0 (walking skeleton), extended**: 4 of 6 connectors
 are live — province/district/subdistrict (+ postal codes, included in that same dataset),
-public holidays, and PM2.5 (Air4Thai) — across two core-api domains (`reference_data`,
-`environment_data`), wired end to end through Postgres, Redis, and an APISIX gateway with
-API-key auth.
+public holidays, PM2.5 (Air4Thai), and weather forecasts (TMD nwpapi) — across two
+core-api domains (`reference_data`, `environment_data`), wired end to end through
+Postgres, Redis, and an APISIX gateway with API-key auth.
 
-**BOT exchange rates and TMD weather are blocked, not skipped**: both require registering
-a developer account on the issuing agency's own API portal (portal.api.bot.or.th and
-TMDAPI respectively) to get a subscription key — that's a human step, not something
-buildable/verifiable without real credentials. Whoever picks this up next needs to
-register and drop the key into `infra/.env`.
+**BOT exchange rates is the one remaining blocker**: it requires registering a developer
+account on portal.api.bot.or.th to get a subscription key — that's a human step, not
+something buildable/verifiable without real credentials. Whoever picks this up next
+needs to register and drop the key into `infra/.env` as `BOT_API_TOKEN` (not added yet —
+no key exists to test against).
 
 Both portals (Developer/Admin) follow the same pattern in a later milestone.
 
@@ -74,8 +74,10 @@ source infra/.env
 curl http://localhost:8000/v1/reference/provinces | head                              # direct to core-api
 curl http://localhost:8000/v1/reference/holidays?year=2026 | head
 curl http://localhost:8000/v1/environment/pm25 | head
+curl http://localhost:8000/v1/environment/weather?province_code=10 | head
 curl -H "apikey: <raw-api-key>" http://localhost:9080/v1/reference/provinces | head   # through the gateway
 curl -H "apikey: <raw-api-key>" http://localhost:9080/v1/environment/pm25 | head
+curl -H "apikey: <raw-api-key>" http://localhost:9080/v1/environment/weather | head
 curl http://localhost:9080/v1/reference/provinces                                     # no key — expect 401
 ```
 
@@ -86,8 +88,13 @@ curl http://localhost:9080/v1/reference/provinces                               
   `[tool.uv.sources]` in their `pyproject.toml`.
 - Ingestion upserts are idempotent — keyed on each table's natural identity (`code` for
   reference data, `(date, name_en)` for holidays, `(station_id, observed_at)` for PM2.5,
-  the last one deliberately accumulating history rather than overwriting it). Safe to
-  re-run after a crash or manual retry.
+  `(province_code, forecast_date)` for weather — that one upserts on purpose, since a
+  forecast for a given date legitimately gets revised as the date approaches, unlike
+  PM2.5's accumulated history). Safe to re-run after a crash or manual retry.
+- TMD's nwpapi rate-limits at 60 requests/window; the weather connector makes 77 (one
+  per province) every run, so hitting 429 partway through is normal, not a bug — it's
+  handled per-request via the `Retry-After` header (see `weather.py`), not by failing
+  the whole batch.
 - **If a new connector's target `.go.th` (or similar) host fails with `CERTIFICATE_VERIFY_FAILED`**:
   check `openssl s_client -connect <host>:443 -showcerts` for an incomplete chain before
   assuming it's our bug — several Thai government sites don't serve their intermediate

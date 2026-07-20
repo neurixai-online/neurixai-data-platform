@@ -29,7 +29,7 @@ class PublicHolidaysConnector(Connector):
     source_name = "th_public_holidays"
     schedule_cron = "0 4 * * 1"  # weekly, Monday 04:00
 
-    async def fetch(self) -> list[dict]:
+    async def fetch(self, session: AsyncSession) -> list[dict]:
         # Verified live: this source 404s for years outside some window it maintains
         # (e.g. no prior-year archive) rather than always covering [this_year-1, +1] as
         # originally assumed. A missing year is an expected gap in the window, not a

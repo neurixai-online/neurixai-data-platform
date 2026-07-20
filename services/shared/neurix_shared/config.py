@@ -6,6 +6,7 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+asyncpg://neurix:neurix@localhost:5432/neurix"
     redis_url: str = "redis://localhost:6379/0"
+    tmd_api_token: str = ""
 
 
 settings = Settings()

@@ -9,6 +9,7 @@ from connectors.base import Connector
 from connectors.pm25 import Pm25Connector
 from connectors.province_district_subdistrict import ProvinceDistrictSubdistrictConnector
 from connectors.public_holidays import PublicHolidaysConnector
+from connectors.weather import WeatherConnector
 from neurix_shared.db import async_session_factory
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -16,10 +17,13 @@ logger = logging.getLogger("neurix.ingestion.worker")
 
 # Registered by hand for now. Once the API Product Catalog exists, this list is replaced
 # by a query against the `connectors` table instead of a literal.
+# Order matters for --once runs: WeatherConnector.fetch() reads the `provinces` table, so
+# ProvinceDistrictSubdistrictConnector must run first on a fresh database.
 CONNECTORS: list[Connector] = [
     ProvinceDistrictSubdistrictConnector(),
     PublicHolidaysConnector(),
     Pm25Connector(),
+    WeatherConnector(),
 ]
 
 

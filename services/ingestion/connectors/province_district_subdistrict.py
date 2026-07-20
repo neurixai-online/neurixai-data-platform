@@ -26,7 +26,7 @@ class ProvinceDistrictSubdistrictConnector(Connector):
     source_name = "th_province_district_subdistrict"
     schedule_cron = "0 3 1 * *"  # monthly — this dataset is effectively static
 
-    async def fetch(self) -> dict:
+    async def fetch(self, session: AsyncSession) -> dict:
         async with httpx.AsyncClient(timeout=30) as client:
             provinces_resp, districts_resp, subdistricts_resp = await asyncio.gather(
                 client.get(_PROVINCES_URL),

@@ -18,8 +18,11 @@ class Connector(ABC):
     schedule_cron: str
 
     @abstractmethod
-    async def fetch(self) -> Any:
-        """Pull the raw payload from the external source. Network I/O only — no shaping."""
+    async def fetch(self, session: AsyncSession) -> Any:
+        """Pull the raw payload from the external source. `session` is there to let a
+        connector READ existing DB state it needs to know what to fetch (e.g. weather
+        needs the province list another connector already loaded) — never write here,
+        that's load()'s job. Most connectors ignore the parameter entirely."""
 
     @abstractmethod
     async def transform(self, raw: Any) -> Any:
@@ -37,14 +40,14 @@ class Connector(ABC):
         retry=retry_if_exception_type(httpx.HTTPError),
         reraise=True,
     )
-    async def _fetch_with_retry(self) -> Any:
+    async def _fetch_with_retry(self, session: AsyncSession) -> Any:
         # Only network/HTTP errors are retried — a bug inside fetch() (e.g. a bad URL
         # constant) should fail fast on the first attempt, not retry 3 times masking it.
-        return await self.fetch()
+        return await self.fetch(session)
 
     async def run(self, session: AsyncSession) -> None:
         logger.info("connector.start source=%s", self.source_name)
-        raw = await self._fetch_with_retry()
+        raw = await self._fetch_with_retry(session)
         records = await self.transform(raw)
         affected = await self.load(session, records)
         await session.commit()
