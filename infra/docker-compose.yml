@@ -1,0 +1,113 @@
+services:
+  postgres:
+    image: docker.io/library/postgres:16-alpine
+    container_name: neurix-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: neurix
+      POSTGRES_PASSWORD: neurix
+      POSTGRES_DB: neurix
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U neurix -d neurix"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: docker.io/library/redis:7-alpine
+    container_name: neurix-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  etcd:
+    # docker.io/bitnami/etcd was dropped from Docker Hub's free catalog (verified via the
+    # Hub API — zero tags returned); using the upstream etcd project's own image instead.
+    image: gcr.io/etcd-development/etcd:v3.5.32
+    container_name: neurix-etcd
+    restart: unless-stopped
+    environment:
+      ETCD_DATA_DIR: /var/lib/etcd/data
+      ETCD_LISTEN_CLIENT_URLS: "http://0.0.0.0:2379"
+      ETCD_ADVERTISE_CLIENT_URLS: "http://etcd:2379"
+    volumes:
+      - etcd_data:/var/lib/etcd/data
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/etcdctl", "--endpoints=http://127.0.0.1:2379", "endpoint", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  apisix:
+    image: docker.io/apache/apisix:3.9.1-debian
+    container_name: neurix-apisix
+    restart: unless-stopped
+    environment:
+      APISIX_ADMIN_KEY: ${APISIX_ADMIN_KEY:?set APISIX_ADMIN_KEY in .env — do not use the APISIX example default key}
+    ports:
+      - "9080:9080" # proxy (client traffic)
+      - "9180:9180" # admin API — local-only, not published beyond localhost
+    volumes:
+      - ./apisix/config.yaml:/usr/local/apisix/conf/config.yaml:ro
+    depends_on:
+      etcd:
+        condition: service_healthy
+    healthcheck:
+      # The apache/apisix debian image ships neither curl nor wget, so we use OpenResty's
+      # own `resty` CLI (bundled with the image) to do a raw TCP connect against the proxy
+      # port — enough to confirm the nginx worker is up and accepting connections.
+      test: ["CMD", "resty", "-e", "local s=ngx.socket.tcp() s:settimeout(2000) local ok=s:connect('127.0.0.1',9080) if not ok then os.exit(1) end os.exit(0)"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  core-api:
+    build:
+      context: ..
+      dockerfile: services/core-api/Containerfile
+    image: neurix-core-api:latest
+    container_name: neurix-core-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://neurix:neurix@postgres:5432/neurix
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000" # direct access for local verification; production traffic goes through apisix
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  ingestion:
+    build:
+      context: ..
+      dockerfile: services/ingestion/Containerfile
+    image: neurix-ingestion:latest
+    container_name: neurix-ingestion
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://neurix:neurix@postgres:5432/neurix
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  etcd_data:

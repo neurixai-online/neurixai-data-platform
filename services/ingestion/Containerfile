@@ -1,0 +1,20 @@
+FROM python:3.12-slim
+
+RUN pip install --no-cache-dir uv
+
+WORKDIR /app
+
+COPY services/shared /app/shared
+COPY services/ingestion /app/ingestion
+
+WORKDIR /app/ingestion
+RUN uv pip install --system .
+
+# air4thai.pcd.go.th (pm25 connector) serves an incomplete cert chain rooted at Let's
+# Encrypt's brand-new "Gen Y" root, which isn't in certifi yet — see certs/*.pem for the
+# full explanation and source links. Appending the officially-published cross-signed
+# cert to certifi's own bundle fixes verification for every httpx call in this image,
+# without disabling verification anywhere.
+RUN cat certs/letsencrypt_gen_y_root_yr.pem >> "$(python -c 'import certifi; print(certifi.where())')"
+
+CMD ["python", "worker.py"]

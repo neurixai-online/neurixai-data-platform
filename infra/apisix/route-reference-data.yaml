@@ -1,0 +1,26 @@
+# Reference/documentation only — APISIX runs in "traditional" mode backed by etcd here,
+# so config isn't loaded from this file directly. It's applied via the Admin API by
+# scripts/apisix_setup.sh, which posts the equivalent JSON. Kept in sync by hand for
+# Milestone 0; once the API Product Catalog exists, this hand-applied step is replaced
+# by an automated sync job reading api_products instead (see docs/architecture.md).
+
+consumer:
+  username: milestone0_test_consumer
+  plugins:
+    key-auth:
+      key: "<generated at setup time — see scripts/apisix_setup.sh output>"
+
+route:
+  uri: /v1/reference/*
+  upstream:
+    type: roundrobin
+    nodes:
+      "core-api:8000": 1
+  plugins:
+    key-auth: {}
+    limit-count:
+      count: 120
+      time_window: 60
+      key: "$consumer_name"
+      key_type: var
+      rejected_code: 429

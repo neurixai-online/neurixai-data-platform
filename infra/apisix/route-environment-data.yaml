@@ -1,0 +1,17 @@
+# Reference/documentation only — see the note in route-reference-data.yaml; this one is
+# applied the same way, by scripts/apisix_setup.sh.
+
+route:
+  uri: /v1/environment/*
+  upstream:
+    type: roundrobin
+    nodes:
+      "core-api:8000": 1
+  plugins:
+    key-auth: {}
+    limit-count:
+      count: 120
+      time_window: 60
+      key: "$consumer_name"
+      key_type: var
+      rejected_code: 429

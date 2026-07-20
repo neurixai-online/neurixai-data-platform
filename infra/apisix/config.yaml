@@ -1,0 +1,27 @@
+# Minimal APISIX 3.x config for local Milestone-0 verification.
+# admin_key is intentionally NOT the well-known APISIX tutorial default
+# (edd1c9f034335f136f87ad84b625c8f) — it's substituted from the APISIX_ADMIN_KEY env var
+# (see infra/.env, git-ignored) so a real secret is used even in local dev.
+deployment:
+  role: traditional
+  role_traditional:
+    config_provider: etcd
+  etcd:
+    host:
+      - "http://etcd:2379"
+    prefix: "/apisix"
+    timeout: 30
+  admin:
+    allow_admin:
+      - 0.0.0.0/0
+    admin_listen:
+      ip: 0.0.0.0
+      port: 9180
+    admin_key:
+      - name: admin
+        key: ${{APISIX_ADMIN_KEY}}
+        role: admin
+
+apisix:
+  node_listen: 9080
+  enable_admin: true
