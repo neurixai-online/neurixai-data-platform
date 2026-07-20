@@ -2,6 +2,7 @@ import type { Config } from "tailwindcss";
 
 // Brand palette matches website-official for visual continuity across NeurixAI properties.
 const config: Config = {
+  darkMode: "selector", // next-themes toggles a "dark" class on <html>
   content: ["./src/app/**/*.{js,ts,jsx,tsx}", "./src/components/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {

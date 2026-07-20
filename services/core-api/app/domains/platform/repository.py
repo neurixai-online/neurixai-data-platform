@@ -1,6 +1,7 @@
 import hashlib
 import secrets
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,17 +10,63 @@ from neurix_shared.models import ApiKey, AuthProvider, Plan, Subscription, Subsc
 
 _FREE_PLAN_NAME = "Free"
 _FREE_PLAN_RATE_LIMIT = 60
+_EMAIL_VERIFICATION_TOKEN_TTL = timedelta(hours=24)
 
 
 async def get_user_by_email(session: AsyncSession, email: str) -> User | None:
     return await session.scalar(select(User).where(User.email == email))
 
 
-async def create_user(session: AsyncSession, email: str, password_hash: str) -> User:
-    user = User(email=email, auth_provider=AuthProvider.PASSWORD, password_hash=password_hash)
+def _new_verification_token() -> tuple[str, datetime]:
+    token = secrets.token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + _EMAIL_VERIFICATION_TOKEN_TTL
+    return token, expires_at
+
+
+async def create_user(session: AsyncSession, email: str, password_hash: str) -> tuple[User, str]:
+    token, expires_at = _new_verification_token()
+    user = User(
+        email=email,
+        auth_provider=AuthProvider.PASSWORD,
+        password_hash=password_hash,
+        email_verification_token=token,
+        email_verification_token_expires_at=expires_at,
+    )
     session.add(user)
     await session.flush()
-    return user
+    return user, token
+
+
+async def set_new_verification_token(session: AsyncSession, user: User) -> str:
+    token, expires_at = _new_verification_token()
+    user.email_verification_token = token
+    user.email_verification_token_expires_at = expires_at
+    return token
+
+
+async def get_user_by_verification_token(session: AsyncSession, token: str) -> User | None:
+    return await session.scalar(select(User).where(User.email_verification_token == token))
+
+
+def mark_email_verified(user: User) -> None:
+    user.email_verified_at = datetime.now(timezone.utc)
+    user.email_verification_token = None
+    user.email_verification_token_expires_at = None
+
+
+def set_pending_totp_secret(user: User, secret: str) -> None:
+    # Deliberately leaves totp_enabled untouched — a secret can exist mid-setup without
+    # granting MFA status until /mfa/verify confirms the user actually captured it.
+    user.totp_secret = secret
+
+
+def enable_totp(user: User) -> None:
+    user.totp_enabled = True
+
+
+def disable_totp(user: User) -> None:
+    user.totp_secret = None
+    user.totp_enabled = False
 
 
 async def get_or_create_free_plan(session: AsyncSession) -> Plan:

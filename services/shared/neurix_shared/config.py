@@ -15,5 +15,11 @@ class Settings(BaseSettings):
     apisix_admin_url: str = "http://apisix:9180"
     apisix_admin_key: str = ""
 
+    # "log" (default) writes the verification link to the app's own logs instead of
+    # sending real email — deliberate for now, not a placeholder left in by mistake: see
+    # app/core/mailer.py. Swap to "resend"/"smtp" once a provider is actually chosen.
+    mailer_backend: str = "log"
+    portal_base_url: str = "http://localhost:3000"
+
 
 settings = Settings()

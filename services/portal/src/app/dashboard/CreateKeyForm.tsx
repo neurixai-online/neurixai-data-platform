@@ -21,12 +21,14 @@ export function CreateKeyForm() {
         </button>
       </form>
 
-      {state.error && <p className="text-xs text-red-400">{state.error}</p>}
+      {state.error && <p className="text-xs text-red-500 dark:text-red-400">{state.error}</p>}
 
       {state.rawKey && (
-        <div className="max-w-sm rounded-md border border-brand-cyan/40 bg-brand-cyan/10 p-3 text-xs">
-          <p className="font-medium text-brand-cyan">คัดลอก key นี้ไว้ตอนนี้ — จะไม่แสดงให้ดูอีก</p>
-          <code className="mt-1 block break-all text-white">{state.rawKey}</code>
+        <div className="max-w-sm rounded-md border border-brand-blue/40 bg-brand-blue/5 p-3 text-xs dark:border-brand-cyan/40 dark:bg-brand-cyan/10">
+          <p className="font-medium text-brand-blue dark:text-brand-cyan">
+            คัดลอก key นี้ไว้ตอนนี้ — จะไม่แสดงให้ดูอีก
+          </p>
+          <code className="mt-1 block break-all">{state.rawKey}</code>
         </div>
       )}
     </div>

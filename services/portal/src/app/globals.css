@@ -2,7 +2,38 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Light is the default (unprefixed) palette; dark overrides via next-themes' "dark"
+   class on <html>. Colors were chosen per theme, not just inverted — see the
+   .nx-link accent swap below, where brand-blue (visible on white) and brand-cyan
+   (visible on navy) trade places rather than sharing one color across both. */
 body {
-  background-color: theme("colors.brand.navy");
-  color: #e5e9f5;
+  @apply bg-white text-[#0F1B33] transition-colors dark:bg-brand-navy dark:text-[#E5E9F5];
+}
+
+@layer components {
+  .nx-card {
+    @apply rounded-lg border border-black/10 bg-black/[0.02] p-5 dark:border-white/10 dark:bg-white/5;
+  }
+
+  .nx-input {
+    @apply rounded-md border border-black/15 bg-black/[0.02] px-3 py-2 text-sm outline-none transition-colors
+      focus:border-brand-blue dark:border-white/10 dark:bg-white/5 dark:focus:border-brand-blue;
+  }
+
+  .nx-label {
+    @apply text-sm text-black/60 dark:text-white/70;
+  }
+
+  .nx-muted {
+    @apply text-black/40 dark:text-white/40;
+  }
+
+  .nx-btn-primary {
+    @apply rounded-md bg-brand-blue px-4 py-2 text-sm font-medium text-white transition
+      hover:bg-brand-glow disabled:opacity-50;
+  }
+
+  .nx-link {
+    @apply text-brand-blue hover:underline dark:text-brand-cyan;
+  }
 }

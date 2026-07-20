@@ -1,9 +1,8 @@
 "use server";
 
-import { AuthError } from "next-auth";
+import { redirect } from "next/navigation";
 
 import { CoreApiError, coreApi } from "@/lib/coreApi";
-import { signIn } from "@/lib/auth";
 
 export type SignupState = { error?: string };
 
@@ -23,16 +22,7 @@ export async function signupAction(_prevState: SignupState, formData: FormData):
     throw error;
   }
 
-  try {
-    // Signup only creates the account in core-api — go through the same login path as
-    // everyone else to actually establish the NextAuth session, rather than duplicating
-    // session-creation logic here.
-    await signIn("credentials", { email, password, redirectTo: "/dashboard" });
-    return {};
-  } catch (error) {
-    if (error instanceof AuthError) {
-      return { error: "สมัครสำเร็จแต่เข้าสู่ระบบอัตโนมัติไม่สำเร็จ กรุณาเข้าสู่ระบบด้วยตนเอง" };
-    }
-    throw error;
-  }
+  // Account now requires email verification before it can log in (see core-api
+  // POST /v1/platform/auth/login) — no more auto-signIn here.
+  redirect(`/check-email?email=${encodeURIComponent(email)}`);
 }

@@ -1,57 +1,103 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
-import { loginAction, type LoginState } from "./actions";
+import { loginAction, resendVerificationAction, type LoginState, type ResendState } from "./actions";
 
 const initialState: LoginState = {};
+const initialResendState: ResendState = {};
 
 export function LoginForm() {
   const [state, formAction, isPending] = useActionState(loginAction, initialState);
+  const [resendState, resendAction, isResending] = useActionState(resendVerificationAction, initialResendState);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const mfaStep = Boolean(state.mfaRequired);
 
   return (
     <form action={formAction} className="flex w-full max-w-sm flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="email" className="text-sm text-white/70">
-          อีเมล
-        </label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          required
-          autoComplete="email"
-          className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-brand-blue"
-        />
-      </div>
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="password" className="text-sm text-white/70">
-          รหัสผ่าน
-        </label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          required
-          autoComplete="current-password"
-          className="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm outline-none focus:border-brand-blue"
-        />
-      </div>
+      {mfaStep ? (
+        <>
+          <input type="hidden" name="email" value={email} />
+          <input type="hidden" name="password" value={password} />
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="totpCode" className="nx-label">
+              รหัสยืนยันตัวตน 6 หลัก
+            </label>
+            <input
+              id="totpCode"
+              name="totpCode"
+              inputMode="numeric"
+              pattern="[0-9]{6}"
+              maxLength={6}
+              required
+              autoFocus
+              autoComplete="one-time-code"
+              className="nx-input"
+            />
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="email" className="nx-label">
+              อีเมล
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              autoComplete="email"
+              className="nx-input"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="password" className="nx-label">
+              รหัสผ่าน
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              required
+              autoComplete="current-password"
+              className="nx-input"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+        </>
+      )}
 
-      {state.error && <p className="text-sm text-red-400">{state.error}</p>}
+      {state.error && <p className="text-sm text-red-500 dark:text-red-400">{state.error}</p>}
 
-      <button
-        type="submit"
-        disabled={isPending}
-        className="mt-2 rounded-md bg-brand-blue px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-glow disabled:opacity-50"
-      >
-        {isPending ? "กำลังเข้าสู่ระบบ..." : "เข้าสู่ระบบ"}
+      {state.emailNotVerified &&
+        (resendState.sent ? (
+          <p className="nx-muted text-sm">ส่งลิงก์ยืนยันอีเมลใหม่แล้ว กรุณาตรวจสอบอีเมลของคุณ</p>
+        ) : (
+          <button
+            type="submit"
+            formAction={resendAction}
+            formNoValidate
+            disabled={isResending}
+            className="nx-link text-left text-sm"
+          >
+            {isResending ? "กำลังส่ง..." : "ส่งอีเมลยืนยันอีกครั้ง"}
+          </button>
+        ))}
+
+      <button type="submit" disabled={isPending} className="nx-btn-primary mt-2">
+        {isPending ? "กำลังเข้าสู่ระบบ..." : mfaStep ? "ยืนยัน" : "เข้าสู่ระบบ"}
       </button>
 
-      <p className="text-center text-sm text-white/50">
+      <p className="nx-muted text-center text-sm">
         ยังไม่มีบัญชี?{" "}
-        <Link href="/signup" className="text-brand-cyan hover:underline">
+        <Link href="/signup" className="nx-link">
           สมัครสมาชิก
         </Link>
       </p>

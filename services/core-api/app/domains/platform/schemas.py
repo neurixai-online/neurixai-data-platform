@@ -9,14 +9,40 @@ class SignupIn(BaseModel):
     password: str = Field(min_length=8, max_length=200)
 
 
+class SignupOut(BaseModel):
+    message: str
+
+
 class LoginIn(BaseModel):
     email: EmailStr
     password: str
+    totp_code: str | None = None
 
 
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
+
+
+class MfaSetupOut(BaseModel):
+    secret: str
+    otpauth_uri: str
+
+
+class MfaCodeIn(BaseModel):
+    code: str
+
+
+class VerifyEmailIn(BaseModel):
+    token: str
+
+
+class ResendVerificationIn(BaseModel):
+    email: EmailStr
+
+
+class MessageOut(BaseModel):
+    message: str
 
 
 class SubscriptionOut(BaseModel):
@@ -42,5 +68,6 @@ class ApiKeyCreatedOut(ApiKeyOut):
 class MeOut(BaseModel):
     id: uuid.UUID
     email: str
+    totp_enabled: bool
     subscriptions: list[SubscriptionOut]
     api_keys: list[ApiKeyOut]

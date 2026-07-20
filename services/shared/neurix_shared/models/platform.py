@@ -4,6 +4,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     DateTime,
 )
 from sqlalchemy import Enum as SAEnum
@@ -102,6 +103,19 @@ class User(Base):
     # low-entropy user secret, unlike api_keys.key_hash below which hashes a high-entropy
     # token and can safely use a fast hash.
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # NULL = not verified yet. Login is blocked until this is set (see platform/router.py).
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    email_verification_token: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+    email_verification_token_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    # TOTP MFA — secret is only meaningful once totp_enabled is True; a secret can exist
+    # un-confirmed mid-setup (see /v1/platform/mfa/setup) without granting MFA status yet.
+    totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    totp_enabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
