@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://neurix:neurix@localhost:5432/neurix"
     redis_url: str = "redis://localhost:6379/0"
     tmd_api_token: str = ""
+    bot_api_token: str = ""
 
     # No insecure default — services/core-api/app/core/auth.py fails fast at import if
     # this is empty, rather than silently signing tokens with a guessable value.

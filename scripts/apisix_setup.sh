@@ -64,10 +64,32 @@ curl -sf -X PUT "${ADMIN_URL}/apisix/admin/routes/environment-data" \
         }
       }' > /dev/null
 
+curl -sf -X PUT "${ADMIN_URL}/apisix/admin/routes/market-data" \
+  -H "X-API-KEY: ${APISIX_ADMIN_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "uri": "/v1/market/*",
+        "upstream": {
+          "type": "roundrobin",
+          "nodes": { "core-api:8000": 1 }
+        },
+        "plugins": {
+          "key-auth": {},
+          "limit-count": {
+            "count": 120,
+            "time_window": 60,
+            "key": "$consumer_name",
+            "key_type": "var",
+            "rejected_code": 429
+          }
+        }
+      }' > /dev/null
+
 echo "APISIX routes + consumer created."
 echo "Test API key: ${TEST_API_KEY}"
 echo
 echo "Verify with:"
 echo "  curl -H \"apikey: ${TEST_API_KEY}\" http://127.0.0.1:9080/v1/reference/provinces"
 echo "  curl -H \"apikey: ${TEST_API_KEY}\" http://127.0.0.1:9080/v1/environment/pm25"
+echo "  curl -H \"apikey: ${TEST_API_KEY}\" http://127.0.0.1:9080/v1/market/exchange-rates"
 echo "  curl http://127.0.0.1:9080/v1/reference/provinces   # expect 401, no key"

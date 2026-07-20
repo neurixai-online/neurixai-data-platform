@@ -110,6 +110,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://neurix:neurix@postgres:5432/neurix
       REDIS_URL: redis://redis:6379/0
       TMD_API_TOKEN: ${TMD_API_TOKEN:-}
+      BOT_API_TOKEN: ${BOT_API_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy

@@ -6,6 +6,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from connectors.base import Connector
+from connectors.exchange_rate import ExchangeRateConnector
 from connectors.pm25 import Pm25Connector
 from connectors.province_district_subdistrict import ProvinceDistrictSubdistrictConnector
 from connectors.public_holidays import PublicHolidaysConnector
@@ -24,6 +25,7 @@ CONNECTORS: list[Connector] = [
     PublicHolidaysConnector(),
     Pm25Connector(),
     WeatherConnector(),
+    ExchangeRateConnector(),
 ]
 
 

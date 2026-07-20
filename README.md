@@ -5,19 +5,21 @@ holidays, BOT exchange rates, weather, PM2.5 — behind a subscription-metered g
 
 See [`docs/architecture.md`](docs/architecture.md) for the full design.
 
-This repo is currently at **Milestone 0 (walking skeleton), extended**: 4 of 6 connectors
-are live — province/district/subdistrict (+ postal codes, included in that same dataset),
-public holidays, PM2.5 (Air4Thai), and weather forecasts (TMD nwpapi) — across two
-core-api domains (`reference_data`, `environment_data`), wired end to end through
-Postgres, Redis, and an APISIX gateway with API-key auth.
+**All 6 of 6 connectors are live**: province/district/subdistrict (+ postal codes, same
+dataset), public holidays, PM2.5 (Air4Thai), weather forecasts (TMD nwpapi), and BOT
+exchange rates — across three core-api domains (`reference_data`, `environment_data`,
+`market_data`), wired end to end through Postgres, Redis, and an APISIX gateway with
+API-key auth.
 
-**BOT exchange rates is the one remaining blocker**: it requires registering a developer
-account on portal.api.bot.or.th to get a subscription key — that's a human step, not
-something buildable/verifiable without real credentials. Whoever picks this up next
-needs to register and drop the key into `infra/.env` as `BOT_API_TOKEN` (not added yet —
-no key exists to test against).
+**Developer Portal (Milestone P0) is live** at `services/portal` — Next.js + NextAuth
+Credentials auth, signup/login/dashboard/API-key management, verified end to end in a
+real browser. No direct DB access — pure HTTP client of core-api's new `platform` domain.
 
-Both portals (Developer/Admin) follow the same pattern in a later milestone.
+**Deferred, blocked on external registration** (same pattern as BOT/TMD were): Google and
+Microsoft OAuth sign-in for the Developer Portal, and the Admin Portal (needs a Microsoft
+Entra ID app registration on the company's Azure tenant). Also not yet built: light/dark
+theme toggle, TOTP MFA for the Developer Portal (not blocked — buildable now), and email
+verification on signup.
 
 ## Layout
 
@@ -65,7 +67,7 @@ podman exec neurix-core-api python /app/scripts/seed.py
 # 5. Trigger ingestion manually (normally runs on each connector's own schedule)
 podman exec neurix-ingestion python worker.py --once
 
-# 6. Wire the API key into APISIX (creates routes for both /v1/reference/* and /v1/environment/*)
+# 6. Wire the API key into APISIX (creates routes for /v1/reference/*, /v1/environment/*, /v1/market/*)
 cd ..
 source infra/.env
 ./scripts/apisix_setup.sh <raw-api-key-from-step-4>
@@ -75,10 +77,15 @@ curl http://localhost:8000/v1/reference/provinces | head                        
 curl http://localhost:8000/v1/reference/holidays?year=2026 | head
 curl http://localhost:8000/v1/environment/pm25 | head
 curl http://localhost:8000/v1/environment/weather?province_code=10 | head
+curl http://localhost:8000/v1/market/exchange-rates?currency_code=USD | head
 curl -H "apikey: <raw-api-key>" http://localhost:9080/v1/reference/provinces | head   # through the gateway
 curl -H "apikey: <raw-api-key>" http://localhost:9080/v1/environment/pm25 | head
 curl -H "apikey: <raw-api-key>" http://localhost:9080/v1/environment/weather | head
+curl -H "apikey: <raw-api-key>" http://localhost:9080/v1/market/exchange-rates | head
 curl http://localhost:9080/v1/reference/provinces                                     # no key — expect 401
+
+# Alternative: sign up through the Developer Portal instead (http://localhost:3000) —
+# it creates the account, subscription, and API key (synced to APISIX) all through the UI.
 ```
 
 ## Notes
@@ -88,9 +95,12 @@ curl http://localhost:9080/v1/reference/provinces                               
   `[tool.uv.sources]` in their `pyproject.toml`.
 - Ingestion upserts are idempotent — keyed on each table's natural identity (`code` for
   reference data, `(date, name_en)` for holidays, `(station_id, observed_at)` for PM2.5,
-  `(province_code, forecast_date)` for weather — that one upserts on purpose, since a
-  forecast for a given date legitimately gets revised as the date approaches, unlike
-  PM2.5's accumulated history). Safe to re-run after a crash or manual retry.
+  `(province_code, forecast_date)` for weather, `(currency_code, rate_date)` for exchange
+  rates — the last two upsert on purpose, since BOT/TMD can both revise an already
+  published day, unlike PM2.5's accumulated history). Safe to re-run after a crash or
+  manual retry.
+- BOT's `Authorization` header takes the raw subscription key with no `Bearer ` prefix —
+  confirmed from BOT's own interactive docs sample, don't "fix" this to add one.
 - TMD's nwpapi rate-limits at 60 requests/window; the weather connector makes 77 (one
   per province) every run, so hitting 429 partway through is normal, not a bug — it's
   handled per-request via the `Retry-After` header (see `weather.py`), not by failing
