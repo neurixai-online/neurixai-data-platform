@@ -80,12 +80,17 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://neurix:neurix@postgres:5432/neurix
       REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env — do not start with an empty signing key}
+      APISIX_ADMIN_URL: http://apisix:9180
+      APISIX_ADMIN_KEY: ${APISIX_ADMIN_KEY:?set APISIX_ADMIN_KEY in .env}
     ports:
       - "8000:8000" # direct access for local verification; production traffic goes through apisix
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      apisix:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
